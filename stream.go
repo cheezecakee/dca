@@ -2,15 +2,14 @@ package dca
 
 import (
 	"errors"
-	"github.com/bwmarrin/discordgo"
 	"io"
 	"sync"
 	"time"
+
+	"github.com/bwmarrin/discordgo"
 )
 
-var (
-	ErrVoiceConnClosed = errors.New("Voice connection closed")
-)
+var ErrVoiceConnClosed = errors.New("Voice connection closed")
 
 // StreamingSession provides an easy way to directly transmit opus audio
 // to discord from an encode session.
@@ -32,14 +31,11 @@ type StreamingSession struct {
 }
 
 // Creates a new stream from an Opusreader.
-// source   : The source of the opus frames to be sent, either from an encoder or decoder.
-// vc       : The voice connecion to stream to.
-// done     : If not nil, an error will be sent on it when completed.
 func NewStream(source OpusReader, vc *discordgo.VoiceConnection, done chan error) *StreamingSession {
 	session := &StreamingSession{
-		source: source,
-		vc:     vc,
-		done:   done,
+		source: source, // The source of the opus frames to be sent, either from an encoder or decoder.
+		vc:     vc,     // The voice connecion to stream to.
+		done:   done,   // If not nil, an error will be sent on it when completed.
 	}
 
 	go session.stream()
@@ -100,14 +96,13 @@ func (s *StreamingSession) readNext() error {
 	}
 
 	// Timeout after 100ms (Maybe this needs to be changed?)
-	timeOut := time.NewTimer(time.Second)
+	timeout := time.After(time.Second)
 
 	// This will attempt to send on the channel before the timeout, which is 1s
 	select {
-	case <-timeOut.C:
+	case <-timeout:
 		return ErrVoiceConnClosed
 	case s.vc.OpusSend <- opus:
-		timeOut.Stop()
 	}
 
 	s.Lock()
@@ -120,9 +115,8 @@ func (s *StreamingSession) readNext() error {
 // SetPaused provides pause/unpause functionality
 func (s *StreamingSession) SetPaused(paused bool) {
 	s.Lock()
-
+	defer s.Unlock()
 	if s.finished {
-		s.Unlock()
 		return
 	}
 
@@ -132,8 +126,6 @@ func (s *StreamingSession) SetPaused(paused bool) {
 			// Was set to stop running after next frame so undo this
 			s.paused = false
 		}
-
-		s.Unlock()
 		return
 	}
 
@@ -143,8 +135,6 @@ func (s *StreamingSession) SetPaused(paused bool) {
 		if !s.paused {
 			s.paused = true
 		}
-
-		s.Unlock()
 		return
 	}
 
@@ -152,34 +142,26 @@ func (s *StreamingSession) SetPaused(paused bool) {
 	if !s.running && s.paused && !paused {
 		go s.stream()
 	}
-
 	s.paused = paused
-	s.Unlock()
 }
 
 // PlaybackPosition returns the the duration of content we have transmitted so far
 func (s *StreamingSession) PlaybackPosition() time.Duration {
 	s.Lock()
-	dur := time.Duration(s.framesSent) * s.source.FrameDuration()
-	s.Unlock()
-	return dur
+	defer s.Unlock()
+	return time.Duration(s.framesSent) * s.source.FrameDuration()
 }
 
 // Finished returns wether the stream finished or not, and any error that caused it to stop
 func (s *StreamingSession) Finished() (bool, error) {
 	s.Lock()
-	err := s.err
-	fin := s.finished
-	s.Unlock()
-
-	return fin, err
+	defer s.Unlock()
+	return s.finished, s.err
 }
 
 // Paused returns wether the sream is paused or not
 func (s *StreamingSession) Paused() bool {
 	s.Lock()
-	p := s.paused
-	s.Unlock()
-
-	return p
+	defer s.Unlock()
+	return s.paused
 }

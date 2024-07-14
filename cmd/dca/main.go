@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/jonas747/dca"
 	"io"
 	"os"
 	"time"
+
+	"github.com/cheezecakee/dca"
 )
 
 // All global variables used within the program
@@ -43,7 +44,7 @@ var (
 
 	Comment string // Comment left in the metadata
 
-	//OpusEncoder *gopus.Encoder
+	// OpusEncoder *gopus.Encoder
 
 	InFile      string
 	CoverFormat string = "jpeg"
@@ -57,7 +58,6 @@ var (
 
 // init configures and parses the command line arguments
 func init() {
-
 	flag.StringVar(&InFile, "i", "pipe:0", "infile")
 	flag.IntVar(&Volume, "vol", 256, "change audio volume (256=normal)")
 	flag.IntVar(&Channels, "ac", 2, "audio channels")
@@ -65,7 +65,7 @@ func init() {
 	flag.IntVar(&FrameDuration, "as", 20, "audio frame duration can be 20, 40, or 60 (ms)")
 	flag.IntVar(&Bitrate, "ab", 128, "audio encoding bitrate in kb/s can be 8 - 128")
 	flag.IntVar(&Threads, "threads", 0, "number of threads to use, 0 for auto")
-	flag.BoolVar(&VBR, "vbr", true, "variable bitrate")
+	flag.BoolVar(&VBR, "VariableBitrate", true, "variable bitrate")
 	flag.BoolVar(&RawOutput, "raw", false, "Raw opus output (no metadata or magic bytes)")
 	flag.StringVar(&Application, "aa", "audio", "audio application can be voip, audio, or lowdelay")
 	flag.StringVar(&CoverFormat, "cf", "jpeg", "format the cover art will be encoded with")
@@ -78,7 +78,6 @@ func init() {
 // very simple program that wraps ffmpeg and outputs raw opus data frames
 // with a uint16 header for each frame with the frame length in bytes
 func main() {
-
 	//////////////////////////////////////////////////////////////////////////
 	// BLOCK : Basic setup and validation
 	//////////////////////////////////////////////////////////////////////////
@@ -120,27 +119,18 @@ func main() {
 	//////////////////////////////////////////////////////////////////////////
 
 	options := &dca.EncodeOptions{
-		Volume:        Volume,
-		Channels:      Channels,
-		FrameRate:     FrameRate,
-		FrameDuration: FrameDuration,
-		Bitrate:       Bitrate,
-		RawOutput:     RawOutput,
-		Application:   dca.AudioApplication(Application),
-		CoverFormat:   CoverFormat,
-		VBR:           VBR,
-		Comment:       Comment,
-		Threads:       Threads,
+		Volume:          Volume,
+		FrameRate:       FrameRate,
+		FrameDuration:   FrameDuration,
+		Bitrate:         Bitrate,
+		VariableBitrate: VBR,
+		Threads:         Threads,
 	}
 
 	var session *dca.EncodeSession
-	var output = os.Stdout
+	output := os.Stdout
 
-	if InFile == "pipe:0" {
-		session, err = dca.EncodeMem(os.Stdin, options)
-	} else {
-		session, err = dca.EncodeFile(InFile, options)
-	}
+	session, err = dca.EncodeFile(InFile, options)
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed creating an encoding session: ", err)
@@ -157,7 +147,6 @@ func main() {
 		os.Exit(1)
 	} else if !Quiet {
 		fmt.Fprintf(os.Stderr, "\nFinished encoding\n")
-		fmt.Fprint(os.Stderr, "ffmpeg output\n\n", session.FFMPEGMessages())
 	}
 }
 
@@ -165,8 +154,6 @@ func statusPrinter(session *dca.EncodeSession) {
 	ticker := time.NewTicker(time.Millisecond * 500)
 	for {
 		<-ticker.C
-		stats := session.Stats()
-		fmt.Fprintf(os.Stderr, "Time: %10s, Bitrate: %6.1fkbits/s, Size: %6dkB, Speed: %7.1f\r", stats.Duration.String(), stats.Bitrate, stats.Size, stats.Speed)
 		if !session.Running() {
 			break
 		}

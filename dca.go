@@ -17,7 +17,7 @@ const (
 	LibraryVersion string = "0.0.5"
 
 	// The URL to the GitHub repository of DCA
-	GitHubRepositoryURL string = "https://github.com/jonas747/dca"
+	GitHubRepositoryURL string = "https://github.com/cheezecakee/dca"
 )
 
 type OpusReader interface {
@@ -46,9 +46,7 @@ func logf(format string, a ...interface{}) {
 	log.Printf(format, a...)
 }
 
-var (
-	ErrNegativeFrameSize = errors.New("Frame size is negative, possibly corrupted.")
-)
+var ErrNegativeFrameSize = errors.New("Frame size is negative, possibly corrupted.")
 
 // DecodeFrame decodes a dca frame from an io.Reader and returns the raw opus audio ready to be sent to discord
 func DecodeFrame(r io.Reader) (frame []byte, err error) {
