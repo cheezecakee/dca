@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/jonas747/ogg"
 )
 
 // AudioApplication is an application profile for opus encoding
@@ -110,7 +108,7 @@ func (e *EncodeSession) run() {
 		"-reconnect_delay_max", "2",
 		"-map", "0:a",
 		"-acodec", "libopus",
-		"-f", "ogg",
+		"-f", "opus",
 		"-compression_level", strconv.Itoa(e.options.CompressionLevel),
 		"-vol", strconv.Itoa(e.options.Volume),
 		"-ar", strconv.Itoa(e.options.FrameRate),
@@ -207,17 +205,10 @@ func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 }
 
 func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
-	decoder := ogg.NewPacketDecoder(ogg.NewDecoder(stdout))
-
-	// the first 2 packets are ogg opus metadata
-	skipPackets := 2
 	for {
-		// Retrieve a packet
-		packet, _, err := decoder.Decode()
-		if skipPackets > 0 {
-			skipPackets--
-			continue
-		}
+		// Read a packet from stdout
+		var packet []byte
+		_, err := stdout.Read(packet)
 		if err != nil {
 			if err != io.EOF {
 				logln("Error reading ffmpeg stdout:", err)
@@ -225,6 +216,7 @@ func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
 			break
 		}
 
+		// Write the Opus frame
 		err = e.writeOpusFrame(packet)
 		if err != nil {
 			logln("Error writing opus frame:", err)
