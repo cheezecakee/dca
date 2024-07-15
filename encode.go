@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/jogramming/ogg"
 )
 
 // AudioApplication is an application profile for opus encoding
@@ -108,7 +110,7 @@ func (e *EncodeSession) run() {
 		"-reconnect_delay_max", "2",
 		"-map", "0:a",
 		"-acodec", "libopus",
-		"-f", "opus",
+		"-f", "ogg",
 		"-compression_level", strconv.Itoa(e.options.CompressionLevel),
 		"-ar", strconv.Itoa(e.options.FrameRate),
 		"-ac", "2",
@@ -205,9 +207,17 @@ func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 }
 
 func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
-	buf := make([]byte, 4096) // Adjust buffer size as needed
+	decoder := ogg.NewPacketDecoder(ogg.NewDecoder(stdout))
+
+	// the first 2 packets are ogg opus metadata
+	skipPackets := 2
 	for {
-		n, err := stdout.Read(buf)
+		// Retrieve a packet
+		packet, _, err := decoder.Decode()
+		if skipPackets > 0 {
+			skipPackets--
+			continue
+		}
 		if err != nil {
 			if err != io.EOF {
 				log.Println("Error reading ffmpeg stdout:", err)
@@ -215,14 +225,10 @@ func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
 			break
 		}
 
-		// Assuming buf[:n] contains one or more Opus frames
-		for i := 0; i < n; i += 4 { // Each Opus frame is 4 bytes long
-			frame := buf[i : i+4]
-			err = e.writeOpusFrame(frame)
-			if err != nil {
-				log.Println("Error writing opus frame:", err)
-				break
-			}
+		err = e.writeOpusFrame(packet)
+		if err != nil {
+			log.Println("Error writing opus frame:", err)
+			break
 		}
 	}
 }
@@ -334,7 +340,7 @@ func (e *EncodeSession) Read(p []byte) (n int, err error) {
 	return e.buf.Read(p)
 }
 
-// FrameDuration implements OpusReader, retruning the duratio of each frame
+// FrameDuration implements OpusReader, retruning the duration of each frame
 func (e *EncodeSession) FrameDuration() time.Duration {
 	return time.Duration(e.options.FrameDuration) * time.Millisecond
 }
