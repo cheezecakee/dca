@@ -117,6 +117,7 @@ func (e *EncodeSession) run() {
 		"-frame_duration", strconv.Itoa(e.options.FrameDuration),
 		"-packet_loss", strconv.Itoa(e.options.PacketLoss),
 		"-threads", strconv.Itoa(e.options.Threads),
+		"-vf", "volume=0.5",
 		"pipe:1",
 	}
 
@@ -204,19 +205,19 @@ func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 }
 
 func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
+	defer stdout.Close()
+	buf := make([]byte, 4096) // Adjust buffer size as needed
 	for {
-		// Read a packet from stdout
-		var packet []byte
-		_, err := stdout.Read(packet)
+		n, err := stdout.Read(buf)
 		if err != nil {
 			if err != io.EOF {
 				logln("Error reading ffmpeg stdout:", err)
 			}
 			break
 		}
-
+		// Process buf[:n] which contains the read data
 		// Write the Opus frame
-		err = e.writeOpusFrame(packet)
+		err = e.writeOpusFrame(buf[:n])
 		if err != nil {
 			logln("Error writing opus frame:", err)
 			break

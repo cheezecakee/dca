@@ -15,19 +15,14 @@ var ErrVoiceConnClosed = errors.New("Voice connection closed")
 // to discord from an encode session.
 type StreamingSession struct {
 	sync.Mutex
-
-	// If this channel is not nil, an error will be sen when finished (or nil if no error)
-	done chan error
-
-	source OpusReader
-	vc     *discordgo.VoiceConnection
-
+	done       chan error
+	source     OpusReader
+	vc         *discordgo.VoiceConnection
 	paused     bool
 	framesSent int
-
-	finished bool
-	running  bool
-	err      error // If an error occured and we had to stop
+	finished   bool
+	running    bool
+	err        error // If an error occured and we had to stop
 }
 
 // Creates a new stream from an Opusreader.
@@ -49,7 +44,6 @@ func (s *StreamingSession) stream() {
 	if s.running {
 		s.Unlock()
 		panic("Stream is already running!")
-		return
 	}
 	s.running = true
 	s.Unlock()
@@ -82,7 +76,6 @@ func (s *StreamingSession) stream() {
 					s.done <- err
 				}()
 			}
-
 			s.Unlock()
 			break
 		}
