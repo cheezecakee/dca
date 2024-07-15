@@ -172,7 +172,9 @@ func (e *EncodeSession) run() {
 			e.Unlock()
 		}
 	}
-}func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
+}
+
+func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	bufReader := bufio.NewReader(stderr)
