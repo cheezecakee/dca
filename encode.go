@@ -190,7 +190,6 @@ func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 			break
 		}
 
-		// Is this the best way to distinguish stats from messages?
 		switch r {
 		case '\n':
 			// Message

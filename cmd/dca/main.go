@@ -12,9 +12,6 @@ import (
 
 // All global variables used within the program
 var (
-	// 1 for mono, 2 for stereo
-	Channels int
-
 	// Must be one of 8000, 12000, 16000, 24000, or 48000.
 	// Discord only uses 48000 currently.
 	FrameRate int
@@ -23,29 +20,18 @@ var (
 	// Discord only uses 8000 to 128000 and default is 64000
 	Bitrate int
 
-	// Must be one of voip, audio, or lowdelay.
-	// DCA defaults to audio which is ideal for music
-	// Not sure what Discord uses here, probably voip
-	Application string
-
-	// if true, dca sends raw output without any magic bytes or json metadata
-	RawOutput bool
-
 	FrameDuration int // Duration in ms of each audio frame
 
 	// Wether variable bitrate is used or not
-	VBR bool
+	VariableBitrate bool
 
 	Volume int // change audio volume (256=normal)
 
 	Threads int // change number of threads to use, 0 for auto
 
-	Comment string // Comment left in the metadata
-
 	// OpusEncoder *gopus.Encoder
 
-	InFile      string
-	CoverFormat string = "jpeg"
+	InFile string
 
 	OutFile string = "pipe:1"
 
@@ -58,16 +44,11 @@ var (
 func init() {
 	flag.StringVar(&InFile, "i", "pipe:0", "infile")
 	flag.IntVar(&Volume, "volume", 256, "change audio volume (256=normal)")
-	flag.IntVar(&Channels, "ac", 2, "audio channels")
 	flag.IntVar(&FrameRate, "ar", 48000, "audio sampling rate")
 	flag.IntVar(&FrameDuration, "as", 20, "audio frame duration can be 20, 40, or 60 (ms)")
 	flag.IntVar(&Bitrate, "ab", 128, "audio encoding bitrate in kb/s can be 8 - 128")
 	flag.IntVar(&Threads, "threads", 0, "number of threads to use, 0 for auto")
-	flag.BoolVar(&VBR, "VariableBitrate", true, "variable bitrate")
-	flag.BoolVar(&RawOutput, "raw", false, "Raw opus output (no metadata or magic bytes)")
-	flag.StringVar(&Application, "aa", "audio", "audio application can be voip, audio, or lowdelay")
-	flag.StringVar(&CoverFormat, "cf", "jpeg", "format the cover art will be encoded with")
-	flag.StringVar(&Comment, "com", "", "leave a comment in the metadata")
+	flag.BoolVar(&VariableBitrate, "vbr", true, "variable bitrate")
 	flag.BoolVar(&Quiet, "quiet", false, "disable stats output to stderr")
 
 	flag.Parse()
@@ -121,7 +102,7 @@ func main() {
 		FrameRate:       FrameRate,
 		FrameDuration:   FrameDuration,
 		Bitrate:         Bitrate,
-		VariableBitrate: VBR,
+		VariableBitrate: VariableBitrate,
 		Threads:         Threads,
 	}
 

@@ -8,18 +8,6 @@ import (
 	"time"
 )
 
-// Define constants
-const (
-	// The current version of the DCA format
-	FormatVersion int8 = 1
-
-	// The current version of the DCA program
-	LibraryVersion string = "0.0.5"
-
-	// The URL to the GitHub repository of DCA
-	GitHubRepositoryURL string = "https://github.com/cheezecakee/dca"
-)
-
 type OpusReader interface {
 	OpusFrame() (frame []byte, err error)
 	FrameDuration() time.Duration

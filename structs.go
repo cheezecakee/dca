@@ -58,12 +58,11 @@ type OriginMetadata struct {
 // Contains information about how the file was encoded
 // with Opus.
 type OpusMetadata struct {
-	Bitrate     int    `json:"abr"`
-	SampleRate  int    `json:"sample_rate"`
-	Application string `json:"mode"`
-	FrameSize   int    `json:"frame_size"`
-	Channels    int    `json:"channels"`
-	VBR         bool   `json:"vbr"`
+	Bitrate         int  `json:"abr"`
+	SampleRate      int  `json:"sample_rate"`
+	FrameSize       int  `json:"frame_size"`
+	Channels        int  `json:"channels"`
+	VariableBitrate bool `json:"vbr"`
 }
 
 // Extra metadata struct
