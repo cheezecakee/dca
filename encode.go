@@ -41,7 +41,7 @@ type EncodeOptions struct {
 var StdEncodeOptions = &EncodeOptions{
 	FrameRate:        48000,
 	FrameDuration:    20,
-	Bitrate:          64,
+	Bitrate:          128,
 	CompressionLevel: 10,
 	PacketLoss:       1,
 	BufferedFrames:   100, // At 20ms frames that's 2s
@@ -135,16 +135,16 @@ func (e *EncodeSession) run() {
 		"-ar", strconv.Itoa(e.options.FrameRate),
 		"-ac", "2",
 		"-b:a", strconv.Itoa(e.options.Bitrate * 1000),
-		"-application", "audio",
+		"-application", "low-delay",
 		"-frame_duration", strconv.Itoa(e.options.FrameDuration),
 		"-packet_loss", strconv.Itoa(e.options.PacketLoss),
 		"-threads", strconv.Itoa(e.options.Threads),
 		"-vf", "volume=0.5",
-		//"pipe:1",
 		"-ss", strconv.Itoa(e.options.StartTime),
+		"pipe:1",
 	}
 
-	args = append(args, "pipe:1")
+	// args = append(args, "pipe:1")
 
 	ffmpeg := exec.Command("ffmpeg", args...)
 
