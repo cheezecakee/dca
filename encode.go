@@ -115,7 +115,13 @@ func (e *EncodeSession) run() {
 		e.options = StdEncodeOptions
 	}
 
+	vbrStr := "on"
+	if !e.options.VariableBitrate {
+		vbrStr = "off"
+	}
+
 	args := []string{
+		"-stats",
 		"-i", inFile,
 		"-reconnect", "1",
 		"-reconnect_at_eof", "1",
@@ -124,6 +130,7 @@ func (e *EncodeSession) run() {
 		"-map", "0:a",
 		"-acodec", "libopus",
 		"-f", "ogg",
+		"-vbr", vbrStr,
 		"-compression_level", strconv.Itoa(e.options.CompressionLevel),
 		"-ar", strconv.Itoa(e.options.FrameRate),
 		"-ac", "2",
@@ -140,9 +147,6 @@ func (e *EncodeSession) run() {
 	args = append(args, "pipe:1")
 
 	ffmpeg := exec.Command("ffmpeg", args...)
-
-	// Print the ffmpeg command for debugging
-	log.Printf("Executing command: %v", ffmpeg.Args)
 
 	if e.pipeReader != nil {
 		ffmpeg.Stdin = e.pipeReader
