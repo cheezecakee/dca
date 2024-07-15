@@ -92,8 +92,8 @@ func (s *StreamingSession) readNext() error {
 	select {
 	case s.vc.OpusSend <- opus:
 		// Successfully sent the frame
-	case <-time.After(500 * time.Millisecond): // Increased the timeout to 500ms
-		return ErrVoiceConnClosed
+		// case <-time.After(500 * time.Millisecond): // Increased the timeout to 500ms
+		// 	return ErrVoiceConnClosed
 	}
 
 	s.Lock()
