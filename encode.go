@@ -17,6 +17,7 @@ import (
 // AudioApplication is an application profile for opus encoding
 type AudioApplication string
 
+// ErrBadFrame
 var ErrBadFrame = errors.New("Bad Frame")
 
 // EncodeOptions is a set of options for encoding dca
