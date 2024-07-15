@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"strconv"
