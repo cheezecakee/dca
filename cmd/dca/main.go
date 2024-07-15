@@ -25,8 +25,6 @@ var (
 	// Wether variable bitrate is used or not
 	VariableBitrate bool
 
-	Volume int // change audio volume (256=normal)
-
 	Threads int // change number of threads to use, 0 for auto
 
 	// OpusEncoder *gopus.Encoder
@@ -43,7 +41,6 @@ var (
 // init configures and parses the command line arguments
 func init() {
 	flag.StringVar(&InFile, "i", "pipe:0", "infile")
-	flag.IntVar(&Volume, "volume", 256, "change audio volume (256=normal)")
 	flag.IntVar(&FrameRate, "ar", 48000, "audio sampling rate")
 	flag.IntVar(&FrameDuration, "as", 20, "audio frame duration can be 20, 40, or 60 (ms)")
 	flag.IntVar(&Bitrate, "ab", 128, "audio encoding bitrate in kb/s can be 8 - 128")
@@ -98,7 +95,6 @@ func main() {
 	//////////////////////////////////////////////////////////////////////////
 
 	options := &dca.EncodeOptions{
-		Volume:          Volume,
 		FrameRate:       FrameRate,
 		FrameDuration:   FrameDuration,
 		Bitrate:         Bitrate,

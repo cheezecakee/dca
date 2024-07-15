@@ -20,7 +20,6 @@ var ErrBadFrame = errors.New("Bad Frame")
 
 // EncodeOptions is a set of options for encoding dca
 type EncodeOptions struct {
-	Volume           int  // change audio volume (256=normal)
 	FrameRate        int  // audio sampling rate (ex 48000)
 	FrameDuration    int  // audio frame duration can be 20, 40, or 60 (ms)
 	Bitrate          int  // audio encoding bitrate in kb/s can be 8 - 128
@@ -33,7 +32,6 @@ type EncodeOptions struct {
 
 // StdEncodeOptions is the standard options for encoding
 var StdEncodeOptions = &EncodeOptions{
-	Volume:           256,
 	FrameRate:        48000,
 	FrameDuration:    20,
 	Bitrate:          64,
@@ -110,7 +108,6 @@ func (e *EncodeSession) run() {
 		"-acodec", "libopus",
 		"-f", "opus",
 		"-compression_level", strconv.Itoa(e.options.CompressionLevel),
-		"-filter:a", "volume=" + strconv.Itoa(e.options.Volume),  // Corrected volume option
 		"-ar", strconv.Itoa(e.options.FrameRate),
 		"-ac", "2",
 		"-b:a", strconv.Itoa(e.options.Bitrate * 1000),
