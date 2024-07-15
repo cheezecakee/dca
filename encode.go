@@ -36,7 +36,7 @@ type EncodeOptions struct {
 var StdEncodeOptions = &EncodeOptions{
 	FrameRate:        48000,
 	FrameDuration:    20,
-	Bitrate:          64,
+	Bitrate:          128,
 	CompressionLevel: 10,
 	PacketLoss:       1,
 	BufferedFrames:   100, // At 20ms frames that's 2s
@@ -205,22 +205,24 @@ func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 }
 
 func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
-	defer stdout.Close()
-	buf := make([]byte, 8192) // Adjust buffer size as needed
+	buf := make([]byte, 4096) // Adjust buffer size as needed
 	for {
 		n, err := stdout.Read(buf)
 		if err != nil {
 			if err != io.EOF {
-				logln("Error reading ffmpeg stdout:", err)
+				log.Println("Error reading ffmpeg stdout:", err)
 			}
 			break
 		}
-		// Process buf[:n] which contains the read data
-		// Write the Opus frame
-		err = e.writeOpusFrame(buf[:n])
-		if err != nil {
-			logln("Error writing opus frame:", err)
-			break
+
+		// Assuming buf[:n] contains one or more Opus frames
+		for i := 0; i < n; i += 4 { // Each Opus frame is 4 bytes long
+			frame := buf[i : i+4]
+			err = e.writeOpusFrame(frame)
+			if err != nil {
+				log.Println("Error writing opus frame:", err)
+				break
+			}
 		}
 	}
 }
