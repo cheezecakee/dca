@@ -271,20 +271,19 @@ func (e *EncodeSession) handleStderrLine(line string) {
 func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
 	decoder := ogg.NewPacketDecoder(ogg.NewDecoder(stdout))
 
-	// the first 2 packets are ogg opus metadata
+	// Skip the first 2 packets as they are metadata
 	skipPackets := 2
 	for {
-		// Retrieve a packet
 		packet, _, err := decoder.Decode()
-		if skipPackets > 0 {
-			skipPackets--
-			continue
-		}
 		if err != nil {
 			if err != io.EOF {
 				log.Println("Error reading ffmpeg stdout:", err)
 			}
 			break
+		}
+		if skipPackets > 0 {
+			skipPackets--
+			continue
 		}
 
 		err = e.writeOpusFrame(packet)
@@ -296,8 +295,11 @@ func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
 }
 
 func (e *EncodeSession) writeOpusFrame(opusFrame []byte) error {
-	var dcaBuf bytes.Buffer
+	if len(opusFrame) < 2 {
+		return ErrBadFrame
+	}
 
+	var dcaBuf bytes.Buffer
 	err := binary.Write(&dcaBuf, binary.LittleEndian, int16(len(opusFrame)))
 	if err != nil {
 		return err
@@ -307,6 +309,9 @@ func (e *EncodeSession) writeOpusFrame(opusFrame []byte) error {
 	if err != nil {
 		return err
 	}
+
+	// Log frame size for debugging
+	log.Printf("Writing frame of size: %d", len(opusFrame))
 
 	e.frameChannel <- &Frame{dcaBuf.Bytes(), false}
 
