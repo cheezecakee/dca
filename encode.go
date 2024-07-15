@@ -110,7 +110,7 @@ func (e *EncodeSession) run() {
 		"-acodec", "libopus",
 		"-f", "opus",
 		"-compression_level", strconv.Itoa(e.options.CompressionLevel),
-		"-volume", strconv.Itoa(e.options.Volume),
+		"-filter:a", "volume=" + strconv.Itoa(e.options.Volume),  // Corrected volume option
 		"-ar", strconv.Itoa(e.options.FrameRate),
 		"-ac", "2",
 		"-b:a", strconv.Itoa(e.options.Bitrate * 1000),
@@ -123,7 +123,8 @@ func (e *EncodeSession) run() {
 
 	ffmpeg := exec.Command("ffmpeg", args...)
 
-	// logln(ffmpeg.Args)
+	// Print the ffmpeg command for debugging
+	log.Printf("Executing command: %v", ffmpeg.Args)
 
 	if e.pipeReader != nil {
 		ffmpeg.Stdin = e.pipeReader
@@ -174,9 +175,7 @@ func (e *EncodeSession) run() {
 			e.Unlock()
 		}
 	}
-}
-
-func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
+}func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	bufReader := bufio.NewReader(stderr)
