@@ -206,7 +206,7 @@ func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 
 func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
 	defer stdout.Close()
-	buf := make([]byte, 4096) // Adjust buffer size as needed
+	buf := make([]byte, 8192) // Adjust buffer size as needed
 	for {
 		n, err := stdout.Read(buf)
 		if err != nil {
