@@ -141,10 +141,9 @@ func (e *EncodeSession) run() {
 		"-threads", strconv.Itoa(e.options.Threads),
 		"-vf", "volume=0.5",
 		"-ss", strconv.Itoa(e.options.StartTime),
-		"pipe:1",
 	}
 
-	// args = append(args, "pipe:1")
+	args = append(args, "pipe:1")
 
 	ffmpeg := exec.Command("ffmpeg", args...)
 
