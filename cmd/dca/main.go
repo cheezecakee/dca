@@ -12,6 +12,9 @@ import (
 
 // All global variables used within the program
 var (
+	// 1 for mono, 2 for stereo
+	Channels int
+
 	// Must be one of 8000, 12000, 16000, 24000, or 48000.
 	// Discord only uses 48000 currently.
 	FrameRate int
@@ -54,7 +57,7 @@ var (
 // init configures and parses the command line arguments
 func init() {
 	flag.StringVar(&InFile, "i", "pipe:0", "infile")
-	flag.IntVar(&Volume, "vol", 256, "change audio volume (256=normal)")
+	flag.IntVar(&Volume, "volume", 256, "change audio volume (256=normal)")
 	flag.IntVar(&Channels, "ac", 2, "audio channels")
 	flag.IntVar(&FrameRate, "ar", 48000, "audio sampling rate")
 	flag.IntVar(&FrameDuration, "as", 20, "audio frame duration can be 20, 40, or 60 (ms)")
