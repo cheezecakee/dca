@@ -5,11 +5,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,17 +34,27 @@ type EncodeOptions struct {
 	BufferedFrames   int  // How big the frame buffer should be
 	Threads          int  // Number of threads to use, 0 for auto
 	VariableBitrate  bool // Whether vbr is used or not (variable bitrate)
+	StartTime        int  // Start Time of the input stream in seconds
 }
 
 // StdEncodeOptions is the standard options for encoding
 var StdEncodeOptions = &EncodeOptions{
 	FrameRate:        48000,
 	FrameDuration:    20,
-	Bitrate:          128,
+	Bitrate:          64,
 	CompressionLevel: 10,
 	PacketLoss:       1,
 	BufferedFrames:   100, // At 20ms frames that's 2s
 	VariableBitrate:  true,
+	StartTime:        0,
+}
+
+// EncodeStats is transcode stats reported by ffmpeg
+type EncodeStats struct {
+	Size     int
+	Duration time.Duration
+	Bitrate  float32
+	Speed    float32
 }
 
 type Frame struct {
@@ -60,6 +72,7 @@ type EncodeSession struct {
 	started      time.Time
 	frameChannel chan *Frame
 	process      *os.Process
+	lastStats    *EncodeStats
 
 	lastFrame int
 	err       error
@@ -120,8 +133,11 @@ func (e *EncodeSession) run() {
 		"-packet_loss", strconv.Itoa(e.options.PacketLoss),
 		"-threads", strconv.Itoa(e.options.Threads),
 		"-vf", "volume=0.5",
-		"pipe:1",
+		//"pipe:1",
+		"-ss", strconv.Itoa(e.options.StartTime),
 	}
+
+	args = append(args, "pipe:1")
 
 	ffmpeg := exec.Command("ffmpeg", args...)
 
@@ -193,7 +209,14 @@ func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 			break
 		}
 
+		// Is this the best way to distinguish stats from messages?
 		switch r {
+		case '\r':
+			// Stats line
+			if outBuf.Len() > 0 {
+				e.handleStderrLine(outBuf.String())
+				outBuf.Reset()
+			}
 		case '\n':
 			// Message
 			e.Lock()
@@ -204,6 +227,41 @@ func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 			outBuf.WriteRune(r)
 		}
 	}
+}
+
+func (e *EncodeSession) handleStderrLine(line string) {
+	if strings.Index(line, "size=") != 0 {
+		return // Not stats info
+	}
+
+	var size int
+
+	var timeH int
+	var timeM int
+	var timeS float32
+
+	var bitrate float32
+	var speed float32
+
+	_, err := fmt.Sscanf(line, "size=%dkB time=%d:%d:%f bitrate=%fkbits/s speed=%fx", &size, &timeH, &timeM, &timeS, &bitrate, &speed)
+	if err != nil {
+		logln("Error parsing ffmpeg stats:", err)
+	}
+
+	dur := time.Duration(timeH) * time.Hour
+	dur += time.Duration(timeM) * time.Minute
+	dur += time.Duration(timeS) * time.Second
+
+	stats := &EncodeStats{
+		Size:     size,
+		Duration: dur,
+		Bitrate:  bitrate,
+		Speed:    speed,
+	}
+
+	e.Lock()
+	e.lastStats = stats
+	e.Unlock()
 }
 
 func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
@@ -300,6 +358,20 @@ func (e *EncodeSession) Running() (running bool) {
 	return
 }
 
+// Stats returns ffmpeg stats, NOTE: this is not playback stats but transcode stats.
+// To get how far into playback you are
+// you have to track the number of frames sent to discord youself
+func (e *EncodeSession) Stats() *EncodeStats {
+	s := &EncodeStats{}
+	e.Lock()
+	if e.lastStats != nil {
+		*s = *e.lastStats
+	}
+	e.Unlock()
+
+	return s
+}
+
 // Options returns the options used
 func (e *EncodeSession) Options() *EncodeOptions {
 	return e.options
@@ -343,4 +415,19 @@ func (e *EncodeSession) Read(p []byte) (n int, err error) {
 // FrameDuration implements OpusReader, retruning the duration of each frame
 func (e *EncodeSession) FrameDuration() time.Duration {
 	return time.Duration(e.options.FrameDuration) * time.Millisecond
+}
+
+// Error returns any error that occured during the encoding process
+func (e *EncodeSession) Error() error {
+	e.Lock()
+	defer e.Unlock()
+	return e.err
+}
+
+// FFMPEGMessages returns messages printed by ffmpeg to stderr, you can use this to see what ffmpeg is saying if your encoding fails
+func (e *EncodeSession) FFMPEGMessages() string {
+	e.Lock()
+	output := e.ffmpegOutput
+	e.Unlock()
+	return output
 }
