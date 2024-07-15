@@ -37,14 +37,13 @@ type EncodeOptions struct {
 	StartTime        int  // Start Time of the input stream in seconds
 }
 
-// StdEncodeOptions is the standard options for encoding
 var StdEncodeOptions = &EncodeOptions{
 	FrameRate:        48000,
 	FrameDuration:    20,
 	Bitrate:          128,
 	CompressionLevel: 10,
 	PacketLoss:       1,
-	BufferedFrames:   100, // At 20ms frames that's 2s
+	BufferedFrames:   500, // Increased buffer size to handle more frames
 	VariableBitrate:  true,
 	StartTime:        0,
 }
@@ -310,8 +309,9 @@ func (e *EncodeSession) writeOpusFrame(opusFrame []byte) error {
 		return err
 	}
 
-	// Log frame size for debugging
+	// Log frame size and buffer state for debugging
 	log.Printf("Writing frame of size: %d", len(opusFrame))
+	log.Printf("Current buffer size: %d", len(e.frameChannel))
 
 	e.frameChannel <- &Frame{dcaBuf.Bytes(), false}
 
