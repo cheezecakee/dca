@@ -40,10 +40,10 @@ type EncodeOptions struct {
 var StdEncodeOptions = &EncodeOptions{
 	FrameRate:        48000,
 	FrameDuration:    20,
-	Bitrate:          128,
+	Bitrate:          64,
 	CompressionLevel: 10,
 	PacketLoss:       1,
-	BufferedFrames:   500, // Increased buffer size to handle more frames
+	BufferedFrames:   100, // Increased buffer size to handle more frames
 	VariableBitrate:  true,
 	StartTime:        0,
 }
@@ -139,11 +139,11 @@ func (e *EncodeSession) run() {
 		"-packet_loss", strconv.Itoa(e.options.PacketLoss),
 		"-threads", strconv.Itoa(e.options.Threads),
 		"-vf", "volume=0.5",
-		//"pipe:1",
 		"-ss", strconv.Itoa(e.options.StartTime),
+		"pipe:1",
 	}
 
-	args = append(args, "pipe:1")
+	// args = append(args, "pipe:1")
 
 	ffmpeg := exec.Command("ffmpeg", args...)
 
@@ -319,7 +319,7 @@ func (e *EncodeSession) writeOpusFrame(opusFrame []byte) error {
 	e.lastFrame++
 	e.Unlock()
 
-	time.Sleep(10 * time.Millisecond) // Add a small delay
+	// time.Sleep(10 * time.Millisecond) // Add a small delay
 
 	return nil
 }
@@ -328,7 +328,12 @@ func (e *EncodeSession) writeOpusFrame(opusFrame []byte) error {
 func (e *EncodeSession) Stop() error {
 	e.Lock()
 	defer e.Unlock()
-	return e.process.Kill()
+	if !e.running || e.process == nil {
+		return errors.New("Not running")
+	}
+
+	err := e.process.Kill()
+	return err
 }
 
 // ReadFrame blocks until a frame is read or there are no more frames
