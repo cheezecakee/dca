@@ -88,7 +88,7 @@ func EncodeFile(path string, options *EncodeOptions) (session *EncodeSession, er
 	session = &EncodeSession{
 		options:      options,
 		filePath:     path,
-		frameChannel: make(chan *Frame, options.BufferedFrames*2),
+		frameChannel: make(chan *Frame, options.BufferedFrames),
 	}
 	go session.run()
 	return
