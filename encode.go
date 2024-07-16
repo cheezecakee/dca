@@ -88,7 +88,7 @@ func EncodeFile(path string, options *EncodeOptions) (session *EncodeSession, er
 	session = &EncodeSession{
 		options:      options,
 		filePath:     path,
-		frameChannel: make(chan *Frame, options.BufferedFrames),
+		frameChannel: make(chan *Frame, options.BufferedFrames*2),
 	}
 	go session.run()
 	return
@@ -318,6 +318,8 @@ func (e *EncodeSession) writeOpusFrame(opusFrame []byte) error {
 	e.Lock()
 	e.lastFrame++
 	e.Unlock()
+
+	time.Sleep(10 * time.Millisecond) // Add a small delay
 
 	return nil
 }
