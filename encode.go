@@ -43,7 +43,7 @@ var StdEncodeOptions = &EncodeOptions{
 	Bitrate:          64,
 	CompressionLevel: 10,
 	PacketLoss:       1,
-	BufferedFrames:   100, // Increased buffer size to handle more frames
+	BufferedFrames:   500, // Increased buffer size to handle more frames
 	VariableBitrate:  true,
 	StartTime:        0,
 }
