@@ -5,13 +5,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -43,17 +41,9 @@ var StdEncodeOptions = &EncodeOptions{
 	Bitrate:          64,
 	CompressionLevel: 10,
 	PacketLoss:       1,
-	BufferedFrames:   500, // Increased buffer size to handle more frames
+	BufferedFrames:   100, // At 20ms frames that's 2s
 	VariableBitrate:  true,
 	StartTime:        0,
-}
-
-// EncodeStats is transcode stats reported by ffmpeg
-type EncodeStats struct {
-	Size     int
-	Duration time.Duration
-	Bitrate  float32
-	Speed    float32
 }
 
 type Frame struct {
@@ -63,21 +53,16 @@ type Frame struct {
 
 type EncodeSession struct {
 	sync.Mutex
-	options    *EncodeOptions
-	pipeReader io.Reader
-	filePath   string
-
+	options      *EncodeOptions
+	pipeReader   io.Reader
+	filePath     string
 	running      bool
 	started      time.Time
 	frameChannel chan *Frame
 	process      *os.Process
-	lastStats    *EncodeStats
-
-	lastFrame int
-	err       error
-
+	lastFrame    int
+	err          error
 	ffmpegOutput string
-
 	// buffer that stores unread bytes (not full frames)
 	// used to implement io.Reader
 	buf bytes.Buffer
@@ -120,12 +105,10 @@ func (e *EncodeSession) run() {
 	}
 
 	args := []string{
-		"-stats",
-		"-i", inFile,
 		"-reconnect", "1",
-		"-reconnect_at_eof", "1",
 		"-reconnect_streamed", "1",
 		"-reconnect_delay_max", "2",
+		"-i", inFile,
 		"-map", "0:a",
 		"-acodec", "libopus",
 		"-f", "ogg",
@@ -143,8 +126,6 @@ func (e *EncodeSession) run() {
 		"pipe:1",
 	}
 
-	// args = append(args, "pipe:1")
-
 	ffmpeg := exec.Command("ffmpeg", args...)
 
 	if e.pipeReader != nil {
@@ -154,7 +135,7 @@ func (e *EncodeSession) run() {
 	stdout, err := ffmpeg.StdoutPipe()
 	if err != nil {
 		e.Unlock()
-		logln("StdoutPipe Error:", err)
+		log.Println("StdoutPipe Error:", err)
 		close(e.frameChannel)
 		return
 	}
@@ -162,7 +143,7 @@ func (e *EncodeSession) run() {
 	stderr, err := ffmpeg.StderrPipe()
 	if err != nil {
 		e.Unlock()
-		logln("StderrPipe Error:", err)
+		log.Println("StderrPipe Error:", err)
 		close(e.frameChannel)
 		return
 	}
@@ -171,7 +152,7 @@ func (e *EncodeSession) run() {
 	err = ffmpeg.Start()
 	if err != nil {
 		e.Unlock()
-		logln("RunStart Error:", err)
+		log.Println("RunStart Error:", err)
 		close(e.frameChannel)
 		return
 	}
@@ -186,10 +167,12 @@ func (e *EncodeSession) run() {
 	go e.readStderr(stderr, &wg)
 
 	defer close(e.frameChannel)
+
 	e.readStdout(stdout)
 	wg.Wait()
 	err = ffmpeg.Wait()
 	if err != nil {
+		log.Println(err)
 		if err.Error() != "signal: killed" {
 			e.Lock()
 			e.err = err
@@ -207,64 +190,24 @@ func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 		r, _, err := bufReader.ReadRune()
 		if err != nil {
 			if err != io.EOF {
-				logln("Error Reading stderr:", err)
+				log.Println("Error Reading stderr:", err)
 			}
 			break
 		}
 
 		// Is this the best way to distinguish stats from messages?
 		switch r {
-		case '\r':
-			// Stats line
-			if outBuf.Len() > 0 {
-				e.handleStderrLine(outBuf.String())
-				outBuf.Reset()
-			}
 		case '\n':
 			// Message
 			e.Lock()
 			e.ffmpegOutput += outBuf.String() + "\n"
+			// log.Println("FFmpeg log:", outBuf.String()) // Log FFmpeg output in real-time
 			e.Unlock()
 			outBuf.Reset()
 		default:
 			outBuf.WriteRune(r)
 		}
 	}
-}
-
-func (e *EncodeSession) handleStderrLine(line string) {
-	if strings.Index(line, "size=") != 0 {
-		return // Not stats info
-	}
-
-	var size int
-
-	var timeH int
-	var timeM int
-	var timeS float32
-
-	var bitrate float32
-	var speed float32
-
-	_, err := fmt.Sscanf(line, "size=%dkB time=%d:%d:%f bitrate=%fkbits/s speed=%fx", &size, &timeH, &timeM, &timeS, &bitrate, &speed)
-	if err != nil {
-		logln("Error parsing ffmpeg stats:", err)
-	}
-
-	dur := time.Duration(timeH) * time.Hour
-	dur += time.Duration(timeM) * time.Minute
-	dur += time.Duration(timeS) * time.Second
-
-	stats := &EncodeStats{
-		Size:     size,
-		Duration: dur,
-		Bitrate:  bitrate,
-		Speed:    speed,
-	}
-
-	e.Lock()
-	e.lastStats = stats
-	e.Unlock()
 }
 
 func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
@@ -294,32 +237,24 @@ func (e *EncodeSession) readStdout(stdout io.ReadCloser) {
 }
 
 func (e *EncodeSession) writeOpusFrame(opusFrame []byte) error {
-	if len(opusFrame) < 2 {
-		return ErrBadFrame
-	}
-
 	var dcaBuf bytes.Buffer
 	err := binary.Write(&dcaBuf, binary.LittleEndian, int16(len(opusFrame)))
 	if err != nil {
+		log.Println("Error writing binary.Write(&dcaBuf, binary.LittleEndian, int16(len(opusFrame)))")
 		return err
 	}
 
 	_, err = dcaBuf.Write(opusFrame)
 	if err != nil {
+		log.Println("Error writing dcaBuf.Write(opusFrame)")
 		return err
 	}
-
-	// Log frame size and buffer state for debugging
-	log.Printf("Writing frame of size: %d", len(opusFrame))
-	log.Printf("Current buffer size: %d", len(e.frameChannel))
 
 	e.frameChannel <- &Frame{dcaBuf.Bytes(), false}
 
 	e.Lock()
 	e.lastFrame++
 	e.Unlock()
-
-	// time.Sleep(10 * time.Millisecond) // Add a small delay
 
 	return nil
 }
@@ -328,12 +263,7 @@ func (e *EncodeSession) writeOpusFrame(opusFrame []byte) error {
 func (e *EncodeSession) Stop() error {
 	e.Lock()
 	defer e.Unlock()
-	if !e.running || e.process == nil {
-		return errors.New("Not running")
-	}
-
-	err := e.process.Kill()
-	return err
+	return e.process.Kill()
 }
 
 // ReadFrame blocks until a frame is read or there are no more frames
@@ -353,16 +283,13 @@ func (e *EncodeSession) OpusFrame() (frame []byte, err error) {
 	if f == nil {
 		return nil, io.EOF
 	}
-
 	if f.metaData {
 		// Return the next one then...
 		return e.OpusFrame()
 	}
-
 	if len(f.data) < 2 {
 		return nil, ErrBadFrame
 	}
-
 	return f.data[2:], nil
 }
 
@@ -372,20 +299,6 @@ func (e *EncodeSession) Running() (running bool) {
 	running = e.running
 	e.Unlock()
 	return
-}
-
-// Stats returns ffmpeg stats, NOTE: this is not playback stats but transcode stats.
-// To get how far into playback you are
-// you have to track the number of frames sent to discord youself
-func (e *EncodeSession) Stats() *EncodeStats {
-	s := &EncodeStats{}
-	e.Lock()
-	if e.lastStats != nil {
-		*s = *e.lastStats
-	}
-	e.Unlock()
-
-	return s
 }
 
 // Options returns the options used
@@ -438,12 +351,4 @@ func (e *EncodeSession) Error() error {
 	e.Lock()
 	defer e.Unlock()
 	return e.err
-}
-
-// FFMPEGMessages returns messages printed by ffmpeg to stderr, you can use this to see what ffmpeg is saying if your encoding fails
-func (e *EncodeSession) FFMPEGMessages() string {
-	e.Lock()
-	output := e.ffmpegOutput
-	e.Unlock()
-	return output
 }

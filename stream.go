@@ -3,6 +3,7 @@ package dca
 import (
 	"errors"
 	"io"
+	"log"
 	"sync"
 	"time"
 
@@ -85,32 +86,27 @@ func (s *StreamingSession) stream() {
 func (s *StreamingSession) readNext() error {
 	opus, err := s.source.OpusFrame()
 	if err != nil {
+		log.Println(err)
 		return err
 	}
-
-	// Timeout after 100ms (Maybe this needs to be changed?)
-	timeOut := time.NewTimer(time.Second)
-
-	// This will attempt to send on the channel before the timeout, which is 1s
+	timeout := time.After(time.Second)
 	select {
-	case <-timeOut.C:
+	case <-timeout:
+		log.Println("Timeout sending opus frame")
 		return ErrVoiceConnClosed
 	case s.vc.OpusSend <- opus:
-		timeOut.Stop()
 	}
-
 	s.Lock()
 	s.framesSent++
 	s.Unlock()
-
 	return nil
 }
 
 // SetPaused provides pause/unpause functionality
 func (s *StreamingSession) SetPaused(paused bool) {
 	s.Lock()
+	defer s.Unlock()
 	if s.finished {
-		s.Unlock()
 		return
 	}
 
@@ -120,7 +116,6 @@ func (s *StreamingSession) SetPaused(paused bool) {
 			// Was set to stop running after next frame so undo this
 			s.paused = false
 		}
-		s.Unlock()
 		return
 	}
 
@@ -130,7 +125,6 @@ func (s *StreamingSession) SetPaused(paused bool) {
 		if !s.paused {
 			s.paused = true
 		}
-		s.Unlock()
 		return
 	}
 
@@ -139,32 +133,25 @@ func (s *StreamingSession) SetPaused(paused bool) {
 		go s.stream()
 	}
 	s.paused = paused
-	s.Unlock()
 }
 
 // PlaybackPosition returns the the duration of content we have transmitted so far
 func (s *StreamingSession) PlaybackPosition() time.Duration {
 	s.Lock()
-	dur := time.Duration(s.framesSent) * s.source.FrameDuration()
-	s.Unlock()
-	return dur
+	defer s.Unlock()
+	return time.Duration(s.framesSent) * s.source.FrameDuration()
 }
 
 // Finished returns wether the stream finished or not, and any error that caused it to stop
 func (s *StreamingSession) Finished() (bool, error) {
 	s.Lock()
-	err := s.err
-	fin := s.finished
-	s.Unlock()
-
-	return fin, err
+	defer s.Unlock()
+	return s.finished, s.err
 }
 
-// Paused returns wether the sream is paused or not
+// Paused returns wether the stream is paused or not
 func (s *StreamingSession) Paused() bool {
 	s.Lock()
-	p := s.paused
-	s.Unlock()
-
-	return p
+	defer s.Unlock()
+	return s.paused
 }
