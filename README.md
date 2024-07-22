@@ -2,8 +2,7 @@ dca [![Go report](http://goreportcard.com/badge/jonas747/dca)](http://goreportca
 ====
 `dca` is a audio file format that uses opus packets and json metadata.
 
-This package implements a decoder, encoder and a helper streamer for dca v0.
+This package is a forked version of [jogrammings's dca](https://github.com/jogramming/dca), it implements an encoder and a helper streamer for dca v0.
+It works with the newest FFMPEG version.
 
 [Docs on GoDoc](https://godoc.org/github.com/jonas747/dca)
-
-There's also a standalone command you can use [here](https://github.com/jonas747/dca/tree/master/cmd/dca)
